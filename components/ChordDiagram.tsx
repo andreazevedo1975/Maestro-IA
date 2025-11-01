@@ -14,7 +14,14 @@ const STANDARD_GUITAR_VOICINGS: Record<string, (string | number)[]> = {
   'Bm': ['x', 2, 4, 4, 3, 2],
 };
 
-export const ChordDiagram = ({ chordName, tuning }: { chordName: string; tuning: string[] }) => {
+// FIX: Define props with an interface for better readability and to avoid potential issues with type checking special React props like 'key'.
+interface ChordDiagramProps {
+    chordName: string;
+    tuning: string[];
+}
+
+// FIX: Explicitly type the component with React.FC to ensure React-specific props like 'key' are handled correctly by TypeScript's JSX type checking.
+export const ChordDiagram: React.FC<ChordDiagramProps> = ({ chordName, tuning }) => {
     const isGuitar = tuning.length === 6;
     const isBass = tuning.length === 4;
 
@@ -66,17 +73,17 @@ export const ChordDiagram = ({ chordName, tuning }: { chordName: string; tuning:
 
     return (
         <div className="flex-shrink-0">
-            <p className="text-center font-bold text-sm text-white mb-1">{chordName}</p>
+            <p className="text-center font-bold text-sm text-gray-900 dark:text-white mb-1">{chordName}</p>
             <div className="flex items-start gap-1">
-                { baseFret > 1 && <div className="text-xs text-gray-400 pt-1 pr-1 font-mono">{baseFret}fr</div> }
-                <div className="relative bg-gray-700/50 rounded-sm" style={{ width: `${stringCount * 12}px`, height: '70px' }}>
+                { baseFret > 1 && <div className="text-xs text-gray-500 dark:text-gray-400 pt-1 pr-1 font-mono">{baseFret}fr</div> }
+                <div className="relative bg-gray-300/50 dark:bg-gray-700/50 rounded-sm" style={{ width: `${stringCount * 12}px`, height: '70px' }}>
                     {/* Frets */}
                     {Array.from({ length: FRET_COUNT + 1 }).map((_, i) => (
-                        <div key={`fret-${i}`} className="absolute left-0 w-full border-b border-gray-500" style={{ top: `${(i / FRET_COUNT) * 100}%` }}></div>
+                        <div key={`fret-${i}`} className="absolute left-0 w-full border-b border-gray-400 dark:border-gray-500" style={{ top: `${(i / FRET_COUNT) * 100}%` }}></div>
                     ))}
                     {/* Strings */}
                     {Array.from({ length: stringCount }).map((_, i) => (
-                         <div key={`string-${i}`} className="absolute top-0 h-full border-r border-gray-500" style={{ left: `${(i / (stringCount - 1)) * 100}%` }}></div>
+                         <div key={`string-${i}`} className="absolute top-0 h-full border-r border-gray-400 dark:border-gray-500" style={{ left: `${(i / (stringCount - 1)) * 100}%` }}></div>
                     ))}
                     {/* Voicing */}
                     {voicing.map((fret, stringIndex) => {
@@ -85,7 +92,7 @@ export const ChordDiagram = ({ chordName, tuning }: { chordName: string; tuning:
                         );
 
                         if (fret === 0) { // Open string
-                            return <div key={`dot-${stringIndex}`} className="absolute -translate-x-1/2 w-2 h-2 border-2 border-cyan-400 rounded-full" style={{ top: '-10px', left: `${(stringIndex / (stringCount - 1)) * 100}%` }}></div>
+                            return <div key={`dot-${stringIndex}`} className="absolute -translate-x-1/2 w-2 h-2 border-2 border-cyan-600 dark:border-cyan-400 rounded-full" style={{ top: '-10px', left: `${(stringIndex / (stringCount - 1)) * 100}%` }}></div>
                         }
                         
                         const fretPos = baseFret > 1 ? Number(fret) - baseFret + 1 : Number(fret);
@@ -96,7 +103,7 @@ export const ChordDiagram = ({ chordName, tuning }: { chordName: string; tuning:
                              const lastString = voicing.lastIndexOf(baseFret);
                              const width = (lastString - firstString) / (stringCount - 1) * 100;
                              return (
-                                 <div key={`barre-${stringIndex}`} className="absolute -translate-y-1/2 h-3 bg-cyan-400 rounded-full" style={{ 
+                                 <div key={`barre-${stringIndex}`} className="absolute -translate-y-1/2 h-3 bg-cyan-600 dark:bg-cyan-400 rounded-full" style={{ 
                                     top: `${((fretPos - 0.5) / FRET_COUNT) * 100}%`, 
                                     left: `${(firstString / (stringCount - 1)) * 100}%`,
                                     width: `${width}%`
@@ -107,7 +114,7 @@ export const ChordDiagram = ({ chordName, tuning }: { chordName: string; tuning:
                         // Normal fretted note
                         if (Number(fret) >= baseFret){
                              return (
-                                <div key={`dot-${stringIndex}`} className="absolute -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-cyan-400 rounded-full" style={{ 
+                                <div key={`dot-${stringIndex}`} className="absolute -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-cyan-600 dark:bg-cyan-400 rounded-full" style={{ 
                                     top: `${((fretPos - 0.5) / FRET_COUNT) * 100}%`, 
                                     left: `${(stringIndex / (stringCount - 1)) * 100}%` 
                                 }}></div>

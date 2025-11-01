@@ -2,21 +2,10 @@
 import React, { useEffect } from 'react';
 import { parseChord } from '../utils/musicTheoryUtils.js';
 import type { InstrumentStem } from '../types.js';
+import { TUNINGS } from '../contexts/SettingsContext.js';
 
 const FRET_COUNT = 5;
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
-const TUNINGS = {
-    guitar: {
-        'Padrão (EADGBe)': ['E', 'A', 'D', 'G', 'B', 'E'],
-        'Drop D (DADGBe)': ['D', 'A', 'D', 'G', 'B', 'E'],
-        'Open G (DGDGBd)': ['D', 'G', 'D', 'G', 'B', 'D'],
-    },
-    bass: {
-        'Padrão (EADG)': ['E', 'A', 'D', 'G'],
-        'Drop D (DADG)': ['D', 'A', 'D', 'G'],
-    }
-};
 
 const getInstrumentType = (instrumentName: string | undefined): 'guitar' | 'bass' => {
     if (!instrumentName) return 'guitar';
@@ -60,7 +49,7 @@ export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningN
 
     const renderFrets = () => {
         return Array.from({ length: FRET_COUNT + 1 }).map((_, i) => (
-             <div key={`fret-line-${i}`} className="absolute h-full border-r border-gray-500" style={{ left: `${(i / (FRET_COUNT + 1)) * 100}%`, right: 'auto' }}></div>
+             <div key={`fret-line-${i}`} className="absolute h-full border-r border-gray-400 dark:border-gray-500" style={{ left: `${(i / (FRET_COUNT + 1)) * 100}%`, right: 'auto' }}></div>
         ));
     };
     
@@ -82,7 +71,7 @@ export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningN
         for (const pos of inlayPositions) {
             if (pos <= FRET_COUNT) {
                  inlays.push(
-                    <div key={`inlay-${pos}`} className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-gray-600 rounded-full" style={{ left: `calc(${(pos - 0.5) / (FRET_COUNT + 1) * 100}%)` }}></div>
+                    <div key={`inlay-${pos}`} className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full" style={{ left: `calc(${(pos - 0.5) / (FRET_COUNT + 1) * 100}%)` }}></div>
                 );
             }
         }
@@ -93,7 +82,7 @@ export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningN
         return (
             <div className="flex flex-col h-full">
                 {Array.from({ length: stringCount }).map((_, i) => (
-                    <div key={`string-${i}`} className="relative flex-1 border-b border-gray-400">
+                    <div key={`string-${i}`} className="relative flex-1 border-b border-gray-500 dark:border-gray-400">
                         {Array.from({ length: FRET_COUNT + 1 }).map((_, fretIndex) => {
                             const note = getNoteOnString(i, fretIndex);
                             const isNoteInChord = chordNotes.includes(note);
@@ -118,13 +107,13 @@ export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningN
     };
 
     return (
-        <div className={`bg-gray-800 p-4 rounded-lg border border-gray-700 transition-opacity duration-300 ${chordName ? 'opacity-100' : 'opacity-50 h-auto'}`}>
+        <div className={`bg-gray-200 dark:bg-gray-800 p-4 rounded-lg border border-gray-300 dark:border-gray-700 transition-opacity duration-300 ${chordName ? 'opacity-100' : 'opacity-50 h-auto'}`}>
             <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-                <p className="font-bold text-lg text-white truncate">{chordName || 'Passe o mouse sobre uma cifra'}</p>
+                <p className="font-bold text-lg text-gray-900 dark:text-white truncate">{chordName || 'Passe o mouse sobre uma cifra'}</p>
                 <select
                     value={tuningName}
                     onChange={(e) => setTuningName(e.target.value)}
-                    className="bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    className="bg-gray-300 dark:bg-gray-700 border border-gray-400 dark:border-gray-600 rounded-md px-2 py-1 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 >
                     {Object.keys(availableTunings).map(name => (
                         <option key={name} value={name}>{name}</option>
@@ -132,7 +121,7 @@ export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningN
                 </select>
             </div>
             <div className="relative" style={{ height: `${stringCount * 1.5}rem`}}>
-                <div className="absolute top-0 left-0 w-full h-full bg-gray-700 rounded-md">
+                <div className="absolute top-0 left-0 w-full h-full bg-gray-100 dark:bg-gray-700 rounded-md">
                     {renderFrets()}
                     {renderInlays()}
                 </div>

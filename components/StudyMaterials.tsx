@@ -1,6 +1,5 @@
 import React from 'react';
 import type { AnalysisResult } from '../types.js';
-import { AccordionSection } from './AccordionSection.js';
 
 const generateStudySuggestions = (result: AnalysisResult) => {
     const suggestions: { category: string; title: string; description: string }[] = [];
@@ -73,16 +72,14 @@ export const StudyMaterials = ({ result }: { result: AnalysisResult }) => {
     }
 
     return (
-        <AccordionSection title="Materiais de Estudo Sugeridos">
-            <div className="space-y-4">
-                {suggestions.map((suggestion, index) => (
-                    <div key={index} className="bg-gray-900/40 p-4 rounded-lg border border-gray-700 transition-transform hover:scale-[1.02] hover:border-cyan-700">
-                        <h4 className="font-bold text-cyan-400 text-sm uppercase tracking-wider">{suggestion.category}</h4>
-                        <h5 className="text-lg font-semibold text-white mt-1">{suggestion.title}</h5>
-                        <p className="text-gray-300 mt-2 whitespace-pre-wrap">{suggestion.description}</p>
-                    </div>
-                ))}
-            </div>
-        </AccordionSection>
+        <div className="space-y-4">
+            {suggestions.map((suggestion, index) => (
+                <div key={index} className="bg-gray-200/40 dark:bg-gray-900/40 p-4 rounded-lg border border-gray-300 dark:border-gray-700 transition-transform hover:scale-[1.02] hover:border-cyan-600 dark:hover:border-cyan-700">
+                    <h4 className="font-bold text-cyan-700 dark:text-cyan-400 text-sm uppercase tracking-wider">{suggestion.category}</h4>
+                    <h5 className="text-lg font-semibold text-gray-900 dark:text-white mt-1">{suggestion.title}</h5>
+                    <p className="text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">{suggestion.description}</p>
+                </div>
+            ))}
+        </div>
     )
 };

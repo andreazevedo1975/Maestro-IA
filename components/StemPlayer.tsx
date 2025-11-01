@@ -175,15 +175,15 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
     if (!isReady) return <p className="text-gray-500 text-sm">Carregando áudio do instrumento...</p>;
 
     return (
-        <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 space-y-2">
+        <div className="bg-gray-300/50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-400 dark:border-gray-700 space-y-2">
             <div className="flex items-center gap-3">
-                <button onClick={handleTogglePlay} className="text-cyan-400 hover:text-white transition" title={isPlaying ? 'Pausar' : 'Tocar'}>
+                <button onClick={handleTogglePlay} className="text-cyan-600 dark:text-cyan-400 hover:text-gray-900 dark:hover:text-white transition" title={isPlaying ? 'Pausar' : 'Tocar'}>
                     {isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6" />}
                 </button>
-                <button onClick={handleToggleLoop} className={`${isLooping ? 'text-cyan-400' : 'text-gray-500'} hover:text-white transition`} title="Repetir (Loop)">
+                <button onClick={handleToggleLoop} className={`${isLooping ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-500'} hover:text-gray-900 dark:hover:text-white transition`} title="Repetir (Loop)">
                     <LoopIcon className="w-5 h-5" />
                 </button>
-                <button onClick={handleToggleMute} className="text-gray-400 hover:text-white transition" title={isMuted ? 'Ativar Som' : 'Silenciar'}>
+                <button onClick={handleToggleMute} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition" title={isMuted ? 'Ativar Som' : 'Silenciar'}>
                     {isMuted || volume === 0 ? <VolumeMuteIcon className="w-5 h-5"/> : <VolumeUpIcon className="w-5 h-5"/>}
                 </button>
                 <input
@@ -193,15 +193,15 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
                     step="0.01"
                     value={isMuted ? 0 : volume}
                     onChange={handleVolumeChange}
-                    className="w-full flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    className="w-full flex-1 h-2 bg-gray-400 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                 />
-                <span className="text-xs text-gray-400 w-10 text-right">{`${Math.round((isMuted ? 0 : volume) * 100)}%`}</span>
-                <button onClick={handleDownload} className="text-gray-400 hover:text-cyan-400 transition" title="Baixar Áudio">
+                <span className="text-xs text-gray-600 dark:text-gray-400 w-10 text-right">{`${Math.round((isMuted ? 0 : volume) * 100)}%`}</span>
+                <button onClick={handleDownload} className="text-gray-600 dark:text-gray-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition" title="Baixar Áudio">
                     <DownloadIcon className="w-5 h-5" />
                 </button>
             </div>
             <div className="flex items-center gap-3">
-                <SpeedIcon className="w-5 h-5 text-gray-400" />
+                <SpeedIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 <input
                     type="range"
                     min="0.5"
@@ -209,9 +209,9 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
                     step="0.05"
                     value={playbackRate}
                     onChange={handlePlaybackRateChange}
-                    className="w-full flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    className="w-full flex-1 h-2 bg-gray-400 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                 />
-                <span className="text-xs text-gray-400 w-10 text-right">{`${playbackRate.toFixed(2)}x`}</span>
+                <span className="text-xs text-gray-600 dark:text-gray-400 w-10 text-right">{`${playbackRate.toFixed(2)}x`}</span>
             </div>
         </div>
     );
