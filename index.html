@@ -15,6 +15,24 @@
       .font-teko {
         font-family: 'Teko', sans-serif;
       }
+      .accordion-content {
+        overflow: hidden;
+        transition: max-height 0.4s ease-out, opacity 0.3s ease-in;
+        max-height: 0;
+        opacity: 0;
+      }
+      .accordion-content-open {
+        max-height: 2000px; /* A large enough value to not clip content */
+        opacity: 1;
+        transition: max-height 0.6s ease-in-out, opacity 0.4s ease-in 0.1s;
+      }
+      @keyframes fade-in {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+          animation: fade-in 0.5s ease-out forwards;
+      }
     </style>
   <script type="importmap">
 {

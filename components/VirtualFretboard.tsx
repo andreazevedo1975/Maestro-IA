@@ -1,6 +1,5 @@
-
 // components/VirtualFretboard.js
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { parseChord } from '../utils/musicTheoryUtils.js';
 import type { InstrumentStem } from '../types.js';
 
@@ -28,22 +27,23 @@ const getInstrumentType = (instrumentName: string | undefined): 'guitar' | 'bass
     return 'guitar'; // Default to guitar
 };
 
-export const VirtualFretboard = ({ chordName, instrument }: { chordName: string | null, instrument: InstrumentStem | null }) => {
+export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningName }: { 
+    chordName: string | null, 
+    instrument: InstrumentStem | null,
+    tuningName: string,
+    setTuningName: (name: string) => void 
+}) => {
     const instrumentType = getInstrumentType(instrument?.instrument);
     const availableTunings = TUNINGS[instrumentType];
-    const defaultTuningName = Object.keys(availableTunings)[0];
-
-    const [tuningName, setTuningName] = useState(defaultTuningName);
     
-    // Reset tuning when instrument changes
+    // Reset tuning if the current one is not available for the new instrument type
     useEffect(() => {
-        const newDefaultTuning = Object.keys(TUNINGS[instrumentType])[0];
-        setTuningName(newDefaultTuning);
-    }, [instrumentType]);
+        if (!availableTunings[tuningName]) {
+            setTuningName(Object.keys(availableTunings)[0]);
+        }
+    }, [instrumentType, tuningName, availableTunings, setTuningName]);
 
-    // FIX: `availableTunings` is a union type of objects with different keys. Indexing it directly
-    // causes TypeScript to infer the result as `never`. By casting it to a generic Record,
-    // we can correctly access the property, as our logic ensures `tuningName` is a valid key.
+
     const openStrings = (availableTunings as Record<string, string[]>)[tuningName];
     const stringCount = openStrings.length;
 
@@ -99,12 +99,10 @@ export const VirtualFretboard = ({ chordName, instrument }: { chordName: string 
                             const isNoteInChord = chordNotes.includes(note);
                             const isRoot = note === rootNote;
 
-                            if (!isNoteInChord) return null;
-
                             return (
                                 <div 
                                     key={`note-${i}-${fretIndex}`} 
-                                    className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center transition-opacity duration-300 ${isNoteInChord ? 'opacity-100' : 'opacity-0'}`}
+                                    className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center transform transition-all duration-200 ease-in-out ${isNoteInChord ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}
                                     style={{ left: `calc(${(fretIndex) / (FRET_COUNT + 1) * 100}%)` }}
                                 >
                                     <div className={`w-full h-full rounded-full flex items-center justify-center ${isRoot ? 'bg-cyan-500' : 'bg-gray-200'}`}>

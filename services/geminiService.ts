@@ -73,6 +73,60 @@ async function generateAudioFromText(prompt) {
     }
 }
 
+function parseJsonResponse(responseText: string) {
+    let jsonText;
+
+    const markdownMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+    if (markdownMatch && markdownMatch[1]) {
+        jsonText = markdownMatch[1];
+    } else {
+        const jsonStartIndex = responseText.indexOf('{');
+        const jsonEndIndex = responseText.lastIndexOf('}');
+        
+        if (jsonStartIndex === -1 || jsonEndIndex === -1 || jsonEndIndex < jsonStartIndex) {
+            throw new Error("A IA não retornou um JSON válido na resposta. O conteúdo recebido não parece conter um objeto JSON.");
+        }
+        
+        jsonText = responseText.substring(jsonStartIndex, jsonEndIndex + 1);
+    }
+    
+    const result = JSON.parse(jsonText);
+    
+    if (!result || Object.keys(result).length === 0) {
+        throw new Error("A IA retornou uma resposta vazia.");
+    }
+    return result;
+}
+
+async function processAnalysisResult(textResult) {
+    // FIX: Ensure instrumentStemDescriptions is an array to prevent crashes if the API omits it.
+    const stemDescriptions = Array.isArray(textResult.instrumentStemDescriptions)
+        ? textResult.instrumentStemDescriptions
+        : [];
+    
+     // Stage 2: Generate all audio stems in parallel
+    const audioGenerationPromises = [
+      generateAudioFromText(textResult.melodyDescription),
+      ...stemDescriptions.map((desc) => generateAudioFromText(desc.description))
+    ];
+    
+    const [mainMelodyAudio, ...instrumentAudios] = await Promise.all(audioGenerationPromises);
+
+    const instrumentStems = stemDescriptions.map((desc, index) => ({
+      instrument: desc.instrument,
+      description: desc.description,
+      tablature: desc.tablature,
+      audio: instrumentAudios[index] || '',
+    }));
+    
+    return {
+        ...textResult,
+        mainMelodyAudio,
+        instrumentStems
+    };
+}
+
+
 export async function analyzeMusicTrack(song, artist) {
   const prompt = `
     Analise de forma profunda as propriedades musicais da canção "${song}" de "${artist}".
@@ -102,62 +156,119 @@ export async function analyzeMusicTrack(song, artist) {
       },
     });
     
-    // Robust JSON parsing to handle potential markdown wrappers or other text
     const responseText = textResponse.text;
-    let jsonText;
 
-    const markdownMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-    if (markdownMatch && markdownMatch[1]) {
-        jsonText = markdownMatch[1];
-    } else {
-        const jsonStartIndex = responseText.indexOf('{');
-        const jsonEndIndex = responseText.lastIndexOf('}');
-        
-        if (jsonStartIndex === -1 || jsonEndIndex === -1 || jsonEndIndex < jsonStartIndex) {
-            throw new Error("A IA não retornou um JSON válido na resposta. O conteúdo recebido não parece conter um objeto JSON.");
+    if (!responseText) {
+        const feedback = textResponse.promptFeedback;
+        if (feedback?.blockReason) {
+            throw new Error(`A análise foi bloqueada. Motivo: ${feedback.blockReason}. Tente uma música diferente.`);
         }
-        
-        jsonText = responseText.substring(jsonStartIndex, jsonEndIndex + 1);
+        throw new Error("A IA não retornou uma resposta. A música pode ser muito desconhecida ou a API pode estar com problemas. Tente novamente.");
     }
-    
-    const textResult = JSON.parse(jsonText);
-    
-    if (!textResult || Object.keys(textResult).length === 0) {
-        throw new Error("A IA retornou uma resposta vazia.");
-    }
+
+    const textResult = parseJsonResponse(responseText);
     
     const sources = textResponse.candidates?.[0]?.groundingMetadata?.groundingChunks
       ?.map(chunk => chunk.web)
       .filter((web) => !!web?.uri && !!web.title)
       .map(({ uri, title }) => ({ uri, title })) ?? [];
 
-    // Stage 2: Generate all audio stems in parallel
-    const audioGenerationPromises = [
-      generateAudioFromText(textResult.melodyDescription),
-      ...textResult.instrumentStemDescriptions.map((desc) => generateAudioFromText(desc.description))
-    ];
-    
-    const [mainMelodyAudio, ...instrumentAudios] = await Promise.all(audioGenerationPromises);
-
-    const instrumentStems = textResult.instrumentStemDescriptions.map((desc, index) => ({
-      instrument: desc.instrument,
-      description: desc.description,
-      tablature: desc.tablature,
-      audio: instrumentAudios[index] || '',
-    }));
+    const fullResult = await processAnalysisResult(textResult);
 
     return {
-        ...textResult,
-        mainMelodyAudio,
-        instrumentStems,
+        ...fullResult,
         sources,
     };
 
   } catch (error) {
     console.error("Erro ao analisar a música:", error);
-    if (error instanceof Error && (error.message.includes('JSON.parse') || error.message.includes('JSON válido'))) {
-         throw new Error("A IA retornou uma resposta em formato inválido. Por favor, tente novamente.");
+    if (error instanceof Error) {
+        // Let our custom user-friendly errors pass through
+        if (error.message.startsWith('A análise foi bloqueada') || 
+            error.message.startsWith('A IA não retornou uma resposta')) {
+            throw error;
+        }
+        if (error.message.includes('JSON.parse') || error.message.includes('JSON válido')) {
+             throw new Error("A IA retornou uma resposta em formato inválido. Por favor, tente novamente.");
+        }
     }
+    // Generic fallback for other errors
     throw new Error("Falha ao analisar a música. A IA pode estar sobrecarregada ou a música é muito desconhecida.");
   }
+}
+
+async function fileToGenerativePart(file: File) {
+  const base64EncodedData = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+  return {
+    inlineData: {
+      data: base64EncodedData,
+      mimeType: file.type,
+    },
+  };
+}
+
+export async function analyzeAudioFile(file: File) {
+    const audioPart = await fileToGenerativePart(file);
+
+    const prompt = `
+      Analise este arquivo de áudio. Se possível, identifique o título da música e o artista com base no áudio e em seu conhecimento.
+      Depois, realize uma análise musical profunda da faixa de áudio fornecida.
+      Sua análise deve incluir:
+      1. Um resumo do estilo musical, clima e instrumentação.
+      2. A tonalidade, o tempo em BPM e a fórmula de compasso.
+      3. A progressão de acordes principal.
+      4. A letra completa com as cifras embutidas (ex: [Am]Letra). Se não conseguir identificar a letra, indique que não foi possível transcrevê-la.
+      5. A estrutura da música (Intro, Verso, Refrão, etc.) com descrições e acordes.
+      6. Descrições textuais otimizadas para Text-to-Speech (TTS) da melodia principal e de 2-4 instrumentos chave. Para cada instrumento, forneça também uma tablatura simplificada (para instrumentos de corda/tecla) ou uma descrição do padrão rítmico (para bateria).
+      7. Um link do YouTube para a música, se você conseguir identificá-la com alta confiança. Se não, retorne uma string vazia para 'previewUrl'.
+
+      Você DEVE retornar o resultado como um único objeto JSON.
+      Não inclua markdown (como \`\`\`json) ou qualquer formatação. Apenas o JSON puro. O JSON deve aderir à seguinte estrutura: ${JSON.stringify(textAnalysisSchema)}
+    `;
+
+    try {
+        const textResponse = await ai.models.generateContent({
+            model: "gemini-2.5-pro",
+            contents: { parts: [{ text: prompt }, audioPart] },
+            config: {
+                temperature: 0.2,
+            },
+        });
+        
+        const responseText = textResponse.text;
+
+        if (!responseText) {
+            const feedback = textResponse.promptFeedback;
+            if (feedback?.blockReason) {
+                throw new Error(`A análise foi bloqueada. Motivo: ${feedback.blockReason}. Tente um arquivo diferente.`);
+            }
+            throw new Error("A IA não retornou uma resposta para este arquivo de áudio. Tente novamente ou use um arquivo diferente.");
+        }
+        
+        const textResult = parseJsonResponse(responseText);
+        const fullResult = await processAnalysisResult(textResult);
+
+        // Sources are not available from multimodal requests
+        return {
+            ...fullResult,
+            sources: [],
+        };
+    } catch (error) {
+        console.error("Erro ao analisar o arquivo de áudio:", error);
+         if (error instanceof Error) {
+            // Let our custom user-friendly errors pass through
+            if (error.message.startsWith('A análise foi bloqueada') || 
+                error.message.startsWith('A IA não retornou uma resposta')) {
+                throw error;
+            }
+            if (error.message.includes('JSON.parse') || error.message.includes('JSON válido')) {
+                 throw new Error("A IA retornou uma resposta em formato inválido. Por favor, tente novamente.");
+            }
+        }
+        throw new Error("Falha ao analisar o arquivo de áudio. O formato pode não ser suportado ou o arquivo está corrompido.");
+    }
 }

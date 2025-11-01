@@ -1,19 +1,37 @@
 import React, { useState } from 'react';
 import { AnalysisDisplay } from './components/AnalysisDisplay.js';
 import { LoadingSpinner } from './components/LoadingSpinner.js';
-import { analyzeMusicTrack } from './services/geminiService.js';
+import { analyzeMusicTrack, analyzeAudioFile } from './services/geminiService.js';
+import { XCircleIcon } from './components/icons/XCircleIcon.js';
 
 function App() {
   const [song, setSong] = useState('');
   const [artist, setArtist] = useState('');
+  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          setAudioFile(file);
+          setSong('');
+          setArtist('');
+          setError(null);
+      }
+  };
+
+  const clearFile = () => {
+    setAudioFile(null);
+    const fileInput = document.getElementById('audio-upload') as HTMLInputElement;
+    if(fileInput) fileInput.value = ''; // Reset file input
+  }
 
   const handleAnalyze = async (e) => {
     e.preventDefault();
-    if (!song.trim() || !artist.trim()) {
-      setError('Por favor, insira o nome da música e do artista.');
+    if (!audioFile && (!song.trim() || !artist.trim())) {
+      setError('Por favor, insira uma música e artista, ou envie um arquivo de áudio.');
       return;
     }
 
@@ -22,7 +40,9 @@ function App() {
     setAnalysis(null);
 
     try {
-      const result = await analyzeMusicTrack(song, artist);
+      const result = audioFile 
+        ? await analyzeAudioFile(audioFile)
+        : await analyzeMusicTrack(song, artist);
       setAnalysis(result);
     } catch (err) {
       if (err instanceof Error) {
@@ -44,26 +64,50 @@ function App() {
         </header>
 
         <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-8 border border-gray-700">
-            <form onSubmit={handleAnalyze} className="flex flex-col sm:flex-row gap-4 items-center">
-                <input
-                    type="text"
-                    value={song}
-                    onChange={(e) => setSong(e.target.value)}
-                    placeholder="Nome da Música (ex: Garota de Ipanema)"
-                    className="w-full sm:w-1/2 bg-gray-900/50 border border-gray-600 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
-                    disabled={isLoading}
-                />
-                <input
-                    type="text"
-                    value={artist}
-                    onChange={(e) => setArtist(e.target.value)}
-                    placeholder="Nome do Artista (ex: Tom Jobim)"
-                    className="w-full sm:w-1/2 bg-gray-900/50 border border-gray-600 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
-                    disabled={isLoading}
-                />
+            <form onSubmit={handleAnalyze}>
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                    <input
+                        type="text"
+                        value={song}
+                        onChange={(e) => setSong(e.target.value)}
+                        placeholder="Nome da Música (ex: Garota de Ipanema)"
+                        className="w-full sm:w-1/2 bg-gray-900/50 border border-gray-600 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition disabled:bg-gray-700/50 disabled:cursor-not-allowed"
+                        disabled={isLoading || !!audioFile}
+                    />
+                    <input
+                        type="text"
+                        value={artist}
+                        onChange={(e) => setArtist(e.target.value)}
+                        placeholder="Nome do Artista (ex: Tom Jobim)"
+                        className="w-full sm:w-1/2 bg-gray-900/50 border border-gray-600 rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition disabled:bg-gray-700/50 disabled:cursor-not-allowed"
+                        disabled={isLoading || !!audioFile}
+                    />
+                </div>
+
+                <div className="flex items-center my-4">
+                  <div className="flex-grow border-t border-gray-600"></div>
+                  <span className="flex-shrink mx-4 text-gray-500 text-sm">OU</span>
+                  <div className="flex-grow border-t border-gray-600"></div>
+                </div>
+
+                {audioFile ? (
+                   <div className="flex items-center justify-between bg-gray-900/50 border border-gray-600 rounded-md px-4 py-2 text-cyan-400 animate-fade-in">
+                        <span className="truncate" title={audioFile.name}>{audioFile.name}</span>
+                        <button type="button" onClick={clearFile} disabled={isLoading} className="ml-2 p-1 rounded-full hover:bg-gray-700 transition">
+                            <XCircleIcon className="w-5 h-5 text-gray-400 hover:text-white" />
+                        </button>
+                    </div>
+                ) : (
+                    <label htmlFor="audio-upload" className="w-full text-center block bg-gray-900/50 border-2 border-dashed border-gray-600 rounded-md px-4 py-3 text-gray-400 cursor-pointer hover:border-cyan-500 hover:text-cyan-400 transition">
+                        <span>Clique para enviar um arquivo de áudio</span>
+                        <input id="audio-upload" type="file" className="hidden" onChange={handleFileChange} accept="audio/*" disabled={isLoading} />
+                    </label>
+                )}
+
+
                 <button
                     type="submit"
-                    className="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded-md transition duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed flex-shrink-0"
+                    className="w-full mt-6 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-md transition-all duration-200 disabled:bg-gray-600 disabled:cursor-not-allowed flex-shrink-0 transform active:scale-95"
                     disabled={isLoading}
                 >
                     {isLoading ? 'Analisando...' : 'Analisar'}
@@ -79,7 +123,7 @@ function App() {
 
         {!isLoading && !analysis && !error && (
           <div className="text-center text-gray-500 py-16">
-            <p>Digite uma música e um artista para começar a análise musical.</p>
+            <p>Digite uma música e um artista ou envie um arquivo para começar.</p>
           </div>
         )}
 

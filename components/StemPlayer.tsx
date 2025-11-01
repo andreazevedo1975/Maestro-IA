@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { decodeBase64, decodePcmAudioData } from '../utils/audioUtils.js';
+import { decodeBase64, decodePcmAudioData, encodeWav } from '../utils/audioUtils.js';
 import { PlayIcon } from './icons/PlayIcon.js';
 import { PauseIcon } from './icons/PauseIcon.js';
 import { LoopIcon } from './icons/LoopIcon.js';
 import { VolumeUpIcon } from './icons/VolumeUpIcon.js';
 import { VolumeMuteIcon } from './icons/VolumeMuteIcon.js';
+import { DownloadIcon } from './icons/DownloadIcon.js';
+import { SpeedIcon } from './icons/SpeedIcon.js';
 
 const SAMPLE_RATE = 24000; // Gemini TTS standard sample rate
 
@@ -15,6 +17,7 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
     const [isMuted, setIsMuted] = useState(false);
     const [isReady, setIsReady] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [playbackRate, setPlaybackRate] = useState(1);
 
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioBufferRef = useRef<AudioBuffer | null>(null);
@@ -79,6 +82,7 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
         source.buffer = audioBufferRef.current;
         source.connect(gainNodeRef.current);
         source.loop = isLooping;
+        source.playbackRate.value = playbackRate;
         
         source.onended = () => {
             if (sourceNodeRef.current === source) {
@@ -89,7 +93,7 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
         source.start(0);
         sourceNodeRef.current = source;
         setIsPlaying(true);
-    }, [isLooping]);
+    }, [isLooping, playbackRate]);
 
     const stop = useCallback(() => {
         if (sourceNodeRef.current) {
@@ -133,30 +137,81 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
         setIsMuted(!currentlyMuted);
     }
     
+    const handlePlaybackRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newRate = parseFloat(e.target.value);
+        setPlaybackRate(newRate);
+        if (sourceNodeRef.current) {
+            sourceNodeRef.current.playbackRate.value = newRate;
+        }
+    };
+
+    const handleDownload = useCallback(() => {
+        if (!audioBase64 || !instrumentName) return;
+
+        try {
+            const pcmBytes = decodeBase64(audioBase64);
+            // The PCM data is 16-bit signed integers.
+            const pcmInt16 = new Int16Array(pcmBytes.buffer);
+            
+            const wavBlob = encodeWav(pcmInt16, SAMPLE_RATE, 1);
+            
+            const url = URL.createObjectURL(wavBlob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `${instrumentName.replace(/ /g, '_')}.wav`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+        } catch (err) {
+            console.error("Failed to create download file:", err);
+            setError("Falha ao preparar o arquivo para download.");
+        }
+    }, [audioBase64, instrumentName]);
+    
     if (error) return <p className="text-red-400 text-sm">{error}</p>;
     if (!isReady) return <p className="text-gray-500 text-sm">Carregando áudio do instrumento...</p>;
 
     return (
-        <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex items-center gap-4">
-            <button onClick={handleTogglePlay} className="text-cyan-400 hover:text-white transition" title={isPlaying ? 'Pausar' : 'Tocar'}>
-                {isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6" />}
-            </button>
-            <button onClick={handleToggleLoop} className={`${isLooping ? 'text-cyan-400' : 'text-gray-500'} hover:text-white transition`} title="Repetir (Loop)">
-                <LoopIcon className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-2 flex-1">
+        <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 space-y-2">
+            <div className="flex items-center gap-3">
+                <button onClick={handleTogglePlay} className="text-cyan-400 hover:text-white transition" title={isPlaying ? 'Pausar' : 'Tocar'}>
+                    {isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6" />}
+                </button>
+                <button onClick={handleToggleLoop} className={`${isLooping ? 'text-cyan-400' : 'text-gray-500'} hover:text-white transition`} title="Repetir (Loop)">
+                    <LoopIcon className="w-5 h-5" />
+                </button>
                 <button onClick={handleToggleMute} className="text-gray-400 hover:text-white transition" title={isMuted ? 'Ativar Som' : 'Silenciar'}>
                     {isMuted || volume === 0 ? <VolumeMuteIcon className="w-5 h-5"/> : <VolumeUpIcon className="w-5 h-5"/>}
                 </button>
-                 <input
+                <input
                     type="range"
                     min="0"
                     max="1"
                     step="0.01"
                     value={isMuted ? 0 : volume}
                     onChange={handleVolumeChange}
-                    className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    className="w-full flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                 />
+                <span className="text-xs text-gray-400 w-10 text-right">{`${Math.round((isMuted ? 0 : volume) * 100)}%`}</span>
+                <button onClick={handleDownload} className="text-gray-400 hover:text-cyan-400 transition" title="Baixar Áudio">
+                    <DownloadIcon className="w-5 h-5" />
+                </button>
+            </div>
+            <div className="flex items-center gap-3">
+                <SpeedIcon className="w-5 h-5 text-gray-400" />
+                <input
+                    type="range"
+                    min="0.5"
+                    max="1.5"
+                    step="0.05"
+                    value={playbackRate}
+                    onChange={handlePlaybackRateChange}
+                    className="w-full flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                />
+                <span className="text-xs text-gray-400 w-10 text-right">{`${playbackRate.toFixed(2)}x`}</span>
             </div>
         </div>
     );

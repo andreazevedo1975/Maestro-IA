@@ -1,4 +1,5 @@
 
+
 export function decodeBase64(base64: string): Uint8Array {
   const binaryString = window.atob(base64);
   const len = binaryString.length;
@@ -26,6 +27,61 @@ export async function decodePcmAudioData(
     }
   }
   return buffer;
+}
+
+function writeString(view: DataView, offset: number, string: string) {
+    for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+    }
+}
+
+/**
+ * Encodes raw 16-bit PCM audio data into a WAV file Blob.
+ * @param samples The raw audio data as signed 16-bit integers.
+ * @param sampleRate The sample rate of the audio (e.g., 24000).
+ * @param numChannels The number of audio channels (e.g., 1 for mono).
+ * @returns A Blob containing the WAV file data.
+ */
+export function encodeWav(samples: Int16Array, sampleRate: number, numChannels: number): Blob {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+    const bitsPerSample = 16;
+    const blockAlign = numChannels * (bitsPerSample / 8);
+    const byteRate = sampleRate * blockAlign;
+
+    /* RIFF identifier */
+    writeString(view, 0, 'RIFF');
+    /* chunk size */
+    view.setUint32(4, 36 + samples.length * 2, true);
+    /* RIFF type */
+    writeString(view, 8, 'WAVE');
+    /* format chunk identifier */
+    writeString(view, 12, 'fmt ');
+    /* format chunk length */
+    view.setUint32(16, 16, true);
+    /* sample format (1 for PCM) */
+    view.setUint16(20, 1, true);
+    /* channel count */
+    view.setUint16(22, numChannels, true);
+    /* sample rate */
+    view.setUint32(24, sampleRate, true);
+    /* byte rate */
+    view.setUint32(28, byteRate, true);
+    /* block align */
+    view.setUint16(32, blockAlign, true);
+    /* bits per sample */
+    view.setUint16(34, bitsPerSample, true);
+    /* data chunk identifier */
+    writeString(view, 36, 'data');
+    /* data chunk length */
+    view.setUint32(40, samples.length * 2, true);
+
+    // Write the PCM data
+    for (let i = 0; i < samples.length; i++) {
+        view.setInt16(44 + i * 2, samples[i], true);
+    }
+
+    return new Blob([view], { type: 'audio/wav' });
 }
 
 
