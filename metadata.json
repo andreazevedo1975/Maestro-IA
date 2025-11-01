@@ -1,0 +1,5 @@
+{
+  "name": "Maestro de IA - Análise Musical",
+  "description": "Uma aplicação web que utiliza IA para analisar faixas de áudio, separando instrumentos, gerando cifras simplificadas e sugerindo materiais de estudo para músicos.",
+  "requestFramePermissions": []
+}
