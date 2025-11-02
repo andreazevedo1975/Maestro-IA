@@ -1,6 +1,6 @@
 // components/VirtualFretboard.js
 import React, { useEffect } from 'react';
-import { parseChord } from '../utils/musicTheoryUtils.js';
+import { parseChord, STANDARD_GUITAR_VOICINGS } from '../utils/musicTheoryUtils.js';
 import type { InstrumentStem } from '../types.js';
 import { TUNINGS } from '../contexts/SettingsContext.js';
 
@@ -16,11 +16,13 @@ const getInstrumentType = (instrumentName: string | undefined): 'guitar' | 'bass
     return 'guitar'; // Default to guitar
 };
 
-export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningName }: { 
+export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningName, highlightedNotes, displayTitle }: { 
     chordName: string | null, 
     instrument: InstrumentStem | null,
     tuningName: string,
-    setTuningName: (name: string) => void 
+    setTuningName: (name: string) => void,
+    highlightedNotes?: string[],
+    displayTitle?: string,
 }) => {
     const instrumentType = getInstrumentType(instrument?.instrument);
     const availableTunings = TUNINGS[instrumentType];
@@ -37,15 +39,43 @@ export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningN
     const stringCount = openStrings.length;
 
     const getNoteOnString = (stringIndex: number, fret: number) => {
-        const openNote = openStrings[stringIndex].toUpperCase(); // Handle cases like 'd' in Open G
+        const openNoteWithOctave = openStrings[stringIndex];
+        const openNote = openNoteWithOctave.toUpperCase().replace(/\d/g, ''); // Remove octave for calculation
         const openNoteIndex = ALL_NOTES.indexOf(openNote);
         if (openNoteIndex === -1) return '?';
         const noteIndex = (openNoteIndex + fret) % 12;
         return ALL_NOTES[noteIndex];
     };
 
-    const chordNotes = chordName ? parseChord(chordName) : [];
-    const rootNote = chordNotes[0] || null;
+    // Determine mode: Voicing diagram or Scale highlighting
+    const tuningNotesOnly = openStrings.map(note => note.replace(/\d/g, ''));
+    const isStandardGuitarTuning = instrumentType === 'guitar' && JSON.stringify(tuningNotesOnly) === JSON.stringify(['E', 'A', 'D', 'G', 'B', 'E']);
+    const voicing = (chordName && isStandardGuitarTuning) ? STANDARD_GUITAR_VOICINGS[chordName] : null;
+
+    // Determine notes to highlight if not in voicing mode
+    const notesToHighlight = voicing ? [] : (highlightedNotes || (chordName ? parseChord(chordName) : []));
+    const rootNote = notesToHighlight[0] || null;
+
+    // Determine base fret for display (for barre chords)
+    const fretsInVoicing = voicing ? voicing.map(f => Number(f)).filter(f => f > 0) : [];
+    const minFret = fretsInVoicing.length > 0 ? Math.min(...fretsInVoicing) : 0;
+    const baseFret = voicing && minFret > 1 ? minFret : 1;
+    
+    let titleText = displayTitle;
+    if (!titleText) {
+        if (voicing) {
+            titleText = chordName;
+        } else if (chordName) {
+            titleText = `${chordName} (notas)`;
+        } else if (highlightedNotes) {
+             titleText = 'Notas da Escala';
+        } else {
+            titleText = 'Passe o mouse sobre uma cifra';
+        }
+    }
+
+    const hasContent = !!voicing || notesToHighlight.length > 0;
+
 
     const renderFrets = () => {
         return Array.from({ length: FRET_COUNT + 1 }).map((_, i) => (
@@ -55,19 +85,22 @@ export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningN
     
     const renderFretNumbers = () => {
         return (
-            <div className="flex pl-[calc(100%/(FRET_COUNT+1)/2)] pr-[calc(100%/(FRET_COUNT+1)/2)]">
-                {Array.from({ length: FRET_COUNT }).map((_, i) => (
-                    <div key={`fret-num-${i+1}`} className="flex-1 text-center text-xs text-gray-500">
-                        {i + 1}
-                    </div>
-                ))}
+            <div className="flex">
+                {baseFret > 1 && <div className="text-xs text-gray-500 pt-1 pr-1 font-mono">{baseFret}fr</div>}
+                <div className="flex-1 flex pl-[calc(100%/(FRET_COUNT+1)/2)] pr-[calc(100%/(FRET_COUNT+1)/2)]">
+                    {Array.from({ length: FRET_COUNT }).map((_, i) => (
+                        <div key={`fret-num-${i+1}`} className="flex-1 text-center text-xs text-gray-500">
+                            {i + baseFret}
+                        </div>
+                    ))}
+                </div>
             </div>
         );
     }
     
     const renderInlays = () => {
         const inlays = [];
-        const inlayPositions = [3, 5, 7, 9, 12]; // Common inlay positions
+        const inlayPositions = [3, 5, 7, 9, 12].map(p => baseFret > 1 ? p - baseFret + 1 : p).filter(p => p > 0);
         for (const pos of inlayPositions) {
             if (pos <= FRET_COUNT) {
                  inlays.push(
@@ -80,22 +113,61 @@ export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningN
 
     const renderStrings = () => {
         return (
-            <div className="flex flex-col h-full">
+            <div className="relative flex flex-col h-full">
+                {/* Voicing Mode: Mute/Open string indicators */}
+                {voicing && (
+                    <div className="absolute -top-5 w-full h-4">
+                        {voicing.map((fret, i) => (
+                             <div key={`indicator-${i}`} className="absolute -translate-x-1/2 text-center text-sm font-bold text-gray-500 dark:text-gray-400" style={{ left: `calc(${(0 / (FRET_COUNT + 1)) * 100}% - 1.25rem)`, top: `calc(${(i / (stringCount-1)) * 100}% - 0.4rem)` }}>
+                                {fret === 'x' ? 'x' : fret === 0 ? 'o' : ''}
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {/* Strings and Dots */}
                 {Array.from({ length: stringCount }).map((_, i) => (
                     <div key={`string-${i}`} className="relative flex-1 border-b border-gray-500 dark:border-gray-400">
-                        {Array.from({ length: FRET_COUNT + 1 }).map((_, fretIndex) => {
+                        {/* Voicing Mode Rendering */}
+                        {voicing && (() => {
+                            const fret = voicing[i];
+                            if (typeof fret !== 'number' || fret <= 0) return null;
+                            const fretPos = baseFret > 1 ? fret - baseFret + 1 : fret;
+                            if (fretPos <= 0 || fretPos > FRET_COUNT) return null;
+
+                            return (
+                                <div 
+                                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center bg-cyan-500"
+                                    style={{ left: `calc(${(fretPos - 0.5) / (FRET_COUNT + 1) * 100}%)` }}
+                                >
+                                    <span className="text-xs font-bold text-white">{getNoteOnString(i, fret)}</span>
+                                </div>
+                            );
+                        })()}
+                        {/* Scale Highlight Mode Rendering */}
+                        {!voicing && Array.from({ length: FRET_COUNT + 1 }).map((_, fretIndex) => {
                             const note = getNoteOnString(i, fretIndex);
-                            const isNoteInChord = chordNotes.includes(note);
-                            const isRoot = note === rootNote;
+                            const isNoteInScale = notesToHighlight.includes(note);
+                            const isRootNote = note === rootNote;
+                            
+                            let noteClasses = '';
+                            let textClasses = 'text-gray-800 dark:text-gray-200';
+
+                            if (isRootNote) {
+                                noteClasses = 'bg-cyan-500';
+                                textClasses = 'text-white';
+                            } else if (isNoteInScale) {
+                                noteClasses = 'bg-cyan-400/70 border border-cyan-500';
+                                textClasses = 'text-gray-900 dark:text-white';
+                            }
 
                             return (
                                 <div 
                                     key={`note-${i}-${fretIndex}`} 
-                                    className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center transform transition-all duration-200 ease-in-out ${isNoteInChord ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}
+                                    className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center transform transition-all duration-200 ease-in-out ${isNoteInScale ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}
                                     style={{ left: `calc(${(fretIndex) / (FRET_COUNT + 1) * 100}%)` }}
                                 >
-                                    <div className={`w-full h-full rounded-full flex items-center justify-center ${isRoot ? 'bg-cyan-500' : 'bg-gray-200'}`}>
-                                        <span className={`text-xs font-bold ${isRoot ? 'text-white' : 'text-gray-800'}`}>{note}</span>
+                                    <div className={`w-full h-full rounded-full flex items-center justify-center ${noteClasses}`}>
+                                        <span className={`text-xs font-bold ${textClasses}`}>{note}</span>
                                     </div>
                                 </div>
                             );
@@ -107,9 +179,9 @@ export const VirtualFretboard = ({ chordName, instrument, tuningName, setTuningN
     };
 
     return (
-        <div className={`bg-gray-200 dark:bg-gray-800 p-4 rounded-lg border border-gray-300 dark:border-gray-700 transition-opacity duration-300 ${chordName ? 'opacity-100' : 'opacity-50 h-auto'}`}>
+        <div className={`bg-gray-200 dark:bg-gray-800 p-4 rounded-lg border border-gray-300 dark:border-gray-700 transition-opacity duration-300 ${hasContent ? 'opacity-100' : 'opacity-50 h-auto'}`}>
             <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-                <p className="font-bold text-lg text-gray-900 dark:text-white truncate">{chordName || 'Passe o mouse sobre uma cifra'}</p>
+                <p className="font-bold text-lg text-gray-900 dark:text-white truncate">{titleText}</p>
                 <select
                     value={tuningName}
                     onChange={(e) => setTuningName(e.target.value)}

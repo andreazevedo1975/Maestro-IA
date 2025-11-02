@@ -7,6 +7,7 @@ import { VolumeUpIcon } from './icons/VolumeUpIcon.js';
 import { VolumeMuteIcon } from './icons/VolumeMuteIcon.js';
 import { DownloadIcon } from './icons/DownloadIcon.js';
 import { SpeedIcon } from './icons/SpeedIcon.js';
+import { WaveformVisualizer } from './WaveformVisualizer.js';
 
 const SAMPLE_RATE = 24000; // Gemini TTS standard sample rate
 
@@ -23,6 +24,7 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
     const audioBufferRef = useRef<AudioBuffer | null>(null);
     const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
     const gainNodeRef = useRef<GainNode | null>(null);
+    const analyserNodeRef = useRef<AnalyserNode | null>(null);
     
     useEffect(() => {
         let isActive = true;
@@ -50,6 +52,9 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
                         gainNodeRef.current = context.createGain();
                         gainNodeRef.current.connect(context.destination);
                     }
+                    if (!analyserNodeRef.current) {
+                        analyserNodeRef.current = context.createAnalyser();
+                    }
                     setIsReady(true);
                     setError(null);
                 }
@@ -71,7 +76,7 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
     }, [audioBase64]);
 
     const play = useCallback(() => {
-        if (!audioBufferRef.current || !audioContextRef.current || !gainNodeRef.current) return;
+        if (!audioBufferRef.current || !audioContextRef.current || !gainNodeRef.current || !analyserNodeRef.current) return;
         
         // Resume context if it's suspended
         if (audioContextRef.current.state === 'suspended') {
@@ -80,7 +85,8 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
 
         const source = audioContextRef.current.createBufferSource();
         source.buffer = audioBufferRef.current;
-        source.connect(gainNodeRef.current);
+        source.connect(analyserNodeRef.current);
+        analyserNodeRef.current.connect(gainNodeRef.current);
         source.loop = isLooping;
         source.playbackRate.value = playbackRate;
         
@@ -176,6 +182,7 @@ export const StemPlayer = ({ instrumentName, audioBase64 }) => {
 
     return (
         <div className="bg-gray-300/50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-400 dark:border-gray-700 space-y-2">
+            <WaveformVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} />
             <div className="flex items-center gap-3">
                 <button onClick={handleTogglePlay} className="text-cyan-600 dark:text-cyan-400 hover:text-gray-900 dark:hover:text-white transition" title={isPlaying ? 'Pausar' : 'Tocar'}>
                     {isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6" />}

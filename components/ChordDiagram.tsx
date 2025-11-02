@@ -1,18 +1,5 @@
 import React from 'react';
-
-// Common open chord voicings for standard guitar tuning (EADGBe)
-// 'x' = mute, number = fret
-const STANDARD_GUITAR_VOICINGS: Record<string, (string | number)[]> = {
-  'A': ['x', 0, 2, 2, 2, 0], 'Am': ['x', 0, 2, 2, 1, 0], 'A7': ['x', 0, 2, 0, 2, 0],
-  'C': ['x', 3, 2, 0, 1, 0], 'Cmaj7': ['x', 3, 2, 0, 0, 0],
-  'D': ['x', 'x', 0, 2, 3, 2], 'Dm': ['x', 'x', 0, 2, 3, 1], 'D7': ['x', 'x', 0, 2, 1, 2],
-  'E': [0, 2, 2, 1, 0, 0], 'Em': [0, 2, 2, 0, 0, 0], 'E7': [0, 2, 0, 1, 0, 0],
-  'G': [3, 2, 0, 0, 0, 3], 'G7': [3, 2, 0, 0, 0, 1],
-  'F': [1, 3, 3, 2, 1, 1], // Barre chord
-  'F#': [2, 4, 4, 3, 2, 2],
-  'B': ['x', 2, 4, 4, 4, 2], // Barre chord
-  'Bm': ['x', 2, 4, 4, 3, 2],
-};
+import { STANDARD_GUITAR_VOICINGS } from '../utils/musicTheoryUtils.js';
 
 // FIX: Define props with an interface for better readability and to avoid potential issues with type checking special React props like 'key'.
 interface ChordDiagramProps {
@@ -27,8 +14,11 @@ export const ChordDiagram: React.FC<ChordDiagramProps> = ({ chordName, tuning })
 
     let voicing: (string | number)[] | undefined;
     const ALL_NOTES = ['E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B', 'C', 'C#', 'D', 'D#'];
-
-    if (isGuitar && JSON.stringify(tuning) === JSON.stringify(['E', 'A', 'D', 'G', 'B', 'E'])) {
+    
+    // Create a version of the tuning without octaves for comparison
+    const tuningNotesOnly = tuning.map(note => note.replace(/\d/g, ''));
+    
+    if (isGuitar && JSON.stringify(tuningNotesOnly) === JSON.stringify(['E', 'A', 'D', 'G', 'B', 'E'])) {
         voicing = STANDARD_GUITAR_VOICINGS[chordName];
     } else if (isBass) {
         // Simple logic for bass: find the root note on the lowest possible fret
@@ -42,8 +32,9 @@ export const ChordDiagram: React.FC<ChordDiagramProps> = ({ chordName, tuning })
 
             let found = false;
             const bassVoicing: (string | number)[] = ['x', 'x', 'x', 'x'];
-            for (let s = 0; s < tuning.length; s++) {
-                const openNoteIndex = ALL_NOTES.indexOf(tuning[s]);
+            for (let s = 0; s < tuningNotesOnly.length; s++) {
+                const openNote = tuningNotesOnly[s];
+                const openNoteIndex = ALL_NOTES.indexOf(openNote);
                 for (let f = 0; f < 12; f++) { // Check up to 12th fret for bass
                     const currentNote = ALL_NOTES[(openNoteIndex + f) % 12];
                     if (currentNote === rootNote) {

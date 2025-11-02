@@ -1,5 +1,8 @@
 import React from 'react';
-import type { AnalysisResult } from '../types.js';
+import type { AnalysisResult, InstrumentStem } from '../types.js';
+import { getScaleNotes } from '../utils/musicTheoryUtils.js';
+import { VirtualFretboard } from './VirtualFretboard.js';
+import { VirtualKeyboard } from './VirtualKeyboard.js';
 
 const generateStudySuggestions = (result: AnalysisResult) => {
     const suggestions: { category: string; title: string; description: string }[] = [];
@@ -63,23 +66,61 @@ const generateStudySuggestions = (result: AnalysisResult) => {
     return suggestions;
 }
 
-export const StudyMaterials = ({ result }: { result: AnalysisResult }) => {
-    // Use React.useMemo to avoid re-calculating on every render
-    const suggestions = React.useMemo(() => generateStudySuggestions(result), [result]);
+interface StudyMaterialsProps {
+    result: AnalysisResult;
+    selectedInstrument: InstrumentStem | null;
+    tuningName: string;
+    setTuningName: (name: string) => void;
+}
 
-    if (suggestions.length === 0) {
-        return null;
-    }
+export const StudyMaterials = ({ result, selectedInstrument, tuningName, setTuningName }: StudyMaterialsProps) => {
+    const suggestions = React.useMemo(() => generateStudySuggestions(result), [result]);
+    const scaleNotes = React.useMemo(() => result.key ? getScaleNotes(result.key) : [], [result.key]);
+
+    if (!result) return null;
 
     return (
-        <div className="space-y-4">
-            {suggestions.map((suggestion, index) => (
-                <div key={index} className="bg-gray-200/40 dark:bg-gray-900/40 p-4 rounded-lg border border-gray-300 dark:border-gray-700 transition-transform hover:scale-[1.02] hover:border-cyan-600 dark:hover:border-cyan-700">
-                    <h4 className="font-bold text-cyan-700 dark:text-cyan-400 text-sm uppercase tracking-wider">{suggestion.category}</h4>
-                    <h5 className="text-lg font-semibold text-gray-900 dark:text-white mt-1">{suggestion.title}</h5>
-                    <p className="text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">{suggestion.description}</p>
-                </div>
-            ))}
+        <div className="grid lg:grid-cols-2 gap-8">
+            <div className="space-y-4">
+                {suggestions.map((suggestion, index) => (
+                    <div key={index} className="bg-gray-200/40 dark:bg-gray-900/40 p-4 rounded-lg border border-gray-300 dark:border-gray-700">
+                        <h4 className="font-bold text-cyan-700 dark:text-cyan-400 text-sm uppercase tracking-wider">{suggestion.category}</h4>
+                        <h5 className="text-lg font-semibold text-gray-900 dark:text-white mt-1">{suggestion.title}</h5>
+                        <p className="text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">{suggestion.description}</p>
+                    </div>
+                ))}
+                {suggestions.length === 0 && <p>Nenhuma sugestão de estudo disponível.</p>}
+            </div>
+            
+            <div className="space-y-6">
+                {scaleNotes.length > 0 ? (
+                    <>
+                        <div>
+                            <h4 className="font-teko font-bold text-xl text-center text-cyan-700 dark:text-cyan-400 uppercase tracking-wider mb-2">Escala de {result.key}</h4>
+                            <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                Visualize as notas da escala nos instrumentos abaixo. A nota tônica (<span className="font-bold">{scaleNotes[0]}</span>) está em destaque.
+                            </p>
+                        </div>
+                        <div>
+                             <VirtualFretboard 
+                                displayTitle={`Escala de ${result.key}`}
+                                chordName={null}
+                                highlightedNotes={scaleNotes} 
+                                instrument={selectedInstrument} 
+                                tuningName={tuningName}
+                                setTuningName={setTuningName}
+                            />
+                        </div>
+                        <div>
+                            <VirtualKeyboard highlightedNotes={scaleNotes} />
+                        </div>
+                    </>
+                ) : (
+                    <div className="text-center text-gray-500 py-16">
+                        <p>Nenhuma tonalidade detectada para exibir visualizações de escala.</p>
+                    </div>
+                )}
+            </div>
         </div>
     )
 };

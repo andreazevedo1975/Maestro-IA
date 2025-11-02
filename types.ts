@@ -33,3 +33,10 @@ export interface AnalysisResult {
   previewUrl?: string;
   sources: Source[];
 }
+
+export interface YouTubeVideo {
+  videoId: string;
+  title: string;
+  thumbnailUrl: string;
+  channelName: string;
+}

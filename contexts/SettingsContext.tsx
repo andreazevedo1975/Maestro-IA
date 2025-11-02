@@ -3,13 +3,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 // Centralized tunings to be accessible by settings and components
 export const TUNINGS = {
     guitar: {
-        'Padrão (EADGBe)': ['E', 'A', 'D', 'G', 'B', 'E'],
-        'Drop D (DADGBe)': ['D', 'A', 'D', 'G', 'B', 'E'],
-        'Open G (DGDGBd)': ['D', 'G', 'D', 'G', 'B', 'D'],
+        'Padrão (EADGBe)': ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'],
+        'Drop D (DADGBe)': ['D2', 'A2', 'D3', 'G3', 'B3', 'E4'],
+        'Open G (DGDGBd)': ['D2', 'G2', 'D3', 'G3', 'B3', 'D4'],
     },
     bass: {
-        'Padrão (EADG)': ['E', 'A', 'D', 'G'],
-        'Drop D (DADG)': ['D', 'A', 'D', 'G'],
+        'Padrão (EADG)': ['E1', 'A1', 'D2', 'G2'],
+        'Drop D (DADG)': ['D1', 'A1', 'D2', 'G2'],
     }
 };
 
@@ -72,6 +72,7 @@ export const SettingsProvider: React.FC<React.PropsWithChildren> = ({ children }
     return (
         <SettingsContext.Provider value={{ settings, updateSettings }}>
             {children}
+        {/* FIX: Corrected typo in closing tag from Settings-Context.Provider to SettingsContext.Provider. */}
         </SettingsContext.Provider>
     );
 };

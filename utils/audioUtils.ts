@@ -1,4 +1,4 @@
-
+// utils/audioUtils.ts
 
 export function decodeBase64(base64: string): Uint8Array {
   const binaryString = window.atob(base64);
@@ -92,16 +92,15 @@ const NOTES_MAP: Record<string, number> = {
     'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11,
 };
 
-const getNoteFrequency = (note: string, octave = 4): number => {
+const getNoteFrequency = (note: string): number => {
     const noteNameMatch = note.match(/([A-G][#b]?)/);
     if (!noteNameMatch) return 0;
     const noteName = noteNameMatch[0];
     
     const octaveMatch = note.match(/\d/);
-    const noteOctave = octaveMatch ? parseInt(octaveMatch[0], 10) : NaN;
+    const noteOctave = octaveMatch ? parseInt(octaveMatch[0], 10) : 4; // Default to octave 4 if not specified
     
-    const baseOctave = isNaN(noteOctave) ? octave : noteOctave;
-    const keyNumber = NOTES_MAP[noteName] + (baseOctave + 1) * 12;
+    const keyNumber = NOTES_MAP[noteName] + (noteOctave + 1) * 12;
     const halfStepsFromA4 = keyNumber - A4_INDEX;
     return A4 * Math.pow(2, halfStepsFromA4 / 12);
 };
@@ -117,7 +116,8 @@ export function playChord(notes: string[], audioContext: AudioContext, duration 
     masterGain.connect(audioContext.destination);
 
     notes.forEach(note => {
-        const freq = getNoteFrequency(note, note.startsWith('G') || note.startsWith('A') || note.startsWith('B') ? 3 : 4);
+        // Use a default octave for chord playing, as it's just for quick reference
+        const freq = getNoteFrequency(note);
         
         const oscillator = audioContext.createOscillator();
         oscillator.type = 'triangle'; 
@@ -156,4 +156,51 @@ export function playMetronomeClick(audioContext: AudioContext, time?: number) {
 
     oscillator.start(scheduleTime);
     oscillator.stop(scheduleTime + 0.05);
+}
+
+let activeNoteSource: OscillatorNode | null = null;
+
+export function playNote(note: string, audioContext: AudioContext, duration: number = 3) {
+    if (!audioContext) return;
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+    
+    stopNote();
+
+    const freq = getNoteFrequency(note);
+    if (freq === 0) return;
+
+    const oscillator = audioContext.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+
+    const gainNode = audioContext.createGain();
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + duration - 0.1);
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + duration);
+
+    activeNoteSource = oscillator;
+    
+    oscillator.onended = () => {
+        if (activeNoteSource === oscillator) {
+            activeNoteSource = null;
+        }
+    };
+}
+
+export function stopNote() {
+    if (activeNoteSource) {
+        try {
+            activeNoteSource.stop();
+        } catch (e) { /* Ignore if already stopped */ }
+        activeNoteSource = null;
+    }
 }

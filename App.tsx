@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { AnalysisDisplay } from './components/AnalysisDisplay.js';
 import { LoadingSpinner } from './components/LoadingSpinner.js';
-import { analyzeMusicTrack, analyzeAudioFile } from './services/geminiService.js';
+import { analyzeMusicTrack, analyzeAudioFile, parseVideoTitle } from './services/geminiService.js';
 import { XCircleIcon } from './components/icons/XCircleIcon.js';
 import { GearIcon } from './components/icons/GearIcon.js';
 import { SettingsModal } from './components/SettingsModal.js';
+import { YouTubeIcon } from './components/icons/YouTubeIcon.js';
+import { YouTubeSearchModal } from './components/YouTubeSearchModal.js';
+import type { YouTubeVideo } from './types.js';
 
 
 function App() {
@@ -15,6 +18,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isYouTubeSearchOpen, setIsYouTubeSearchOpen] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -58,10 +62,32 @@ function App() {
       setIsLoading(false);
     }
   };
+  
+  const handleYouTubeSelect = async (video: YouTubeVideo) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+          const { song, artist } = await parseVideoTitle(video.title);
+          setSong(song);
+          setArtist(artist);
+      } catch(err) {
+          setError(err instanceof Error ? err.message : "Não foi possível processar o vídeo selecionado.");
+          // Fallback to just using the title if parsing fails
+          setSong(video.title);
+          setArtist('');
+      } finally {
+          setIsLoading(false);
+      }
+  };
 
   return (
     <>
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <YouTubeSearchModal 
+        isOpen={isYouTubeSearchOpen}
+        onClose={() => setIsYouTubeSearchOpen(false)}
+        onSelect={handleYouTubeSelect}
+      />
       <div className="min-h-screen font-sans p-4 sm:p-8 selection:bg-cyan-500/30">
         <div className="max-w-4xl mx-auto">
           <header className="text-center mb-8 relative">
@@ -102,20 +128,32 @@ function App() {
                     <span className="flex-shrink mx-4 text-gray-500 text-sm">OU</span>
                     <div className="flex-grow border-t border-gray-400 dark:border-gray-600"></div>
                   </div>
+                  
+                  <div className="space-y-4">
+                      <button
+                          type="button"
+                          onClick={() => setIsYouTubeSearchOpen(true)}
+                          disabled={isLoading || !!audioFile}
+                          className="w-full flex items-center justify-center gap-3 bg-gray-200/50 dark:bg-gray-900/50 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-md px-4 py-3 text-gray-500 dark:text-gray-400 cursor-pointer hover:border-red-500 hover:text-red-500 dark:hover:text-red-400 transition disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                          <YouTubeIcon className="w-6 h-6 text-red-600 dark:text-red-500" />
+                          <span>Buscar música no YouTube</span>
+                      </button>
 
-                  {audioFile ? (
-                    <div className="flex items-center justify-between bg-gray-200/50 dark:bg-gray-900/50 border border-gray-400 dark:border-gray-600 rounded-md px-4 py-2 text-cyan-600 dark:text-cyan-400 animate-fade-in">
-                          <span className="truncate" title={audioFile.name}>{audioFile.name}</span>
-                          <button type="button" onClick={clearFile} disabled={isLoading} className="ml-2 p-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-700 transition">
-                              <XCircleIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white" />
-                          </button>
-                      </div>
-                  ) : (
-                      <label htmlFor="audio-upload" className="w-full text-center block bg-gray-200/50 dark:bg-gray-900/50 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-md px-4 py-3 text-gray-500 dark:text-gray-400 cursor-pointer hover:border-cyan-500 hover:text-cyan-500 dark:hover:text-cyan-400 transition">
-                          <span>Clique para enviar um arquivo de áudio</span>
-                          <input id="audio-upload" type="file" className="hidden" onChange={handleFileChange} accept="audio/*" disabled={isLoading} />
-                      </label>
-                  )}
+                      {audioFile ? (
+                        <div className="flex items-center justify-between bg-gray-200/50 dark:bg-gray-900/50 border border-gray-400 dark:border-gray-600 rounded-md px-4 py-2 text-cyan-600 dark:text-cyan-400 animate-fade-in">
+                              <span className="truncate" title={audioFile.name}>{audioFile.name}</span>
+                              <button type="button" onClick={clearFile} disabled={isLoading} className="ml-2 p-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-700 transition">
+                                  <XCircleIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white" />
+                              </button>
+                          </div>
+                      ) : (
+                          <label htmlFor="audio-upload" className="w-full text-center block bg-gray-200/50 dark:bg-gray-900/50 border-2 border-dashed border-gray-400 dark:border-gray-600 rounded-md px-4 py-3 text-gray-500 dark:text-gray-400 cursor-pointer hover:border-cyan-500 hover:text-cyan-500 dark:hover:text-cyan-400 transition">
+                              <span>Clique para enviar um arquivo de áudio</span>
+                              <input id="audio-upload" type="file" className="hidden" onChange={handleFileChange} accept="audio/*" disabled={isLoading} />
+                          </label>
+                      )}
+                  </div>
 
 
                   <button
